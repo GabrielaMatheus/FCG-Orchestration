@@ -1,0 +1,59 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    hostname: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  users-api:
+    build:
+      context: ../FCG-UsersAPI
+    ports:
+      - "5101:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__UsersDatabase: Data Source=/data/users.db
+      Jwt__Issuer: FiapCloudGames.UsersApi
+      Jwt__Audience: FiapCloudGames
+      Jwt__SecretKey: ${JWT_SECRET:-development-only-secret-key-change-me-123456789}
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@fiap.com.br}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123!}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - users-data:/data
+
+  notifications-api:
+    build:
+      context: ../FCG-NotificationsAPI
+    ports:
+      - "5104:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:8080
+      RabbitMq__Host: rabbitmq
+      RabbitMq__Username: ${RABBITMQ_USER:-guest}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+volumes:
+  rabbitmq-data:
+  users-data:

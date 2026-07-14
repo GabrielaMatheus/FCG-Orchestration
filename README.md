@@ -34,6 +34,14 @@ Na raiz deste repositório, o comando abaixo sobe RabbitMQ e os quatro microsser
 docker compose up --build
 ```
 
+Enquanto CatalogAPI e PaymentsAPI ainda não estiverem disponíveis localmente, a parte de usuários e notificações pode ser testada separadamente:
+
+```powershell
+docker compose -f docker-compose.minha-parte.yml up --build
+```
+
+Esse compose sobe apenas RabbitMQ, UsersAPI e NotificationsAPI, permitindo validar o fluxo de cadastro e notificação de boas-vindas.
+
 Serviços expostos localmente:
 
 | Serviço | URL |
