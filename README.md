@@ -1,4 +1,4 @@
-# FIAP Cloud Games - Orquestracao
+# FIAP Cloud Games - Orquestração
 
 Repositório responsável pela execução integrada dos microsserviços da Fase 2 do FIAP Cloud Games.
 
@@ -33,14 +33,6 @@ Na raiz deste repositório, o comando abaixo sobe RabbitMQ e os quatro microsser
 ```powershell
 docker compose up --build
 ```
-
-Para testar apenas o fluxo de cadastro de usuário e notificação de boas-vindas, também existe um compose reduzido:
-
-```powershell
-docker compose -f docker-compose.minha-parte.yml up --build
-```
-
-Esse compose sobe apenas RabbitMQ, UsersAPI e NotificationsAPI.
 
 Serviços expostos localmente:
 
