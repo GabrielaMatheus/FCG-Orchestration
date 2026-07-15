@@ -34,13 +34,13 @@ Na raiz deste repositório, o comando abaixo sobe RabbitMQ e os quatro microsser
 docker compose up --build
 ```
 
-Enquanto CatalogAPI e PaymentsAPI ainda não estiverem disponíveis localmente, a parte de usuários e notificações pode ser testada separadamente:
+Para testar apenas o fluxo de cadastro de usuário e notificação de boas-vindas, também existe um compose reduzido:
 
 ```powershell
 docker compose -f docker-compose.minha-parte.yml up --build
 ```
 
-Esse compose sobe apenas RabbitMQ, UsersAPI e NotificationsAPI, permitindo validar o fluxo de cadastro e notificação de boas-vindas.
+Esse compose sobe apenas RabbitMQ, UsersAPI e NotificationsAPI.
 
 Serviços expostos localmente:
 
@@ -71,7 +71,8 @@ O arquivo `.env.example` lista as variáveis usadas pelo `docker-compose.yml`.
 | `ADMIN_EMAIL` | E-mail do administrador inicial da UsersAPI |
 | `ADMIN_PASSWORD` | Senha do administrador inicial da UsersAPI |
 | `CATALOG_DATABASE` | Connection string local da CatalogAPI |
-| `PAYMENTS_DATABASE` | Connection string local da PaymentsAPI |
+
+A `CatalogAPI` valida os tokens JWT emitidos pela `UsersAPI`, por isso usa o mesmo `Jwt__Issuer`, `Jwt__Audience` e `JWT_SECRET` configurados para autenticação.
 
 ## Fluxo de mensageria
 
