@@ -1,0 +1,62 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: users-api
+    url: http://users-api:8080
+    routes:
+      - name: users-routes
+        paths:
+          - /api/users
+        strip_path: false
+      - name: users-swagger
+        paths:
+          - /users-swagger
+        strip_path: true
+
+  - name: catalog-api
+    url: http://catalog-api:8080
+    routes:
+      - name: catalog-games-routes
+        paths:
+          - /api/games
+        strip_path: false
+      - name: catalog-user-routes
+        paths:
+          - ~/api/users/[^/]+/games/[^/]+/purchase$
+          - ~/api/users/[^/]+/library$
+        strip_path: false
+      - name: catalog-swagger
+        paths:
+          - /catalog-swagger
+        strip_path: true
+
+consumers:
+  - username: fcg-users-api
+    jwt_secrets:
+      - key: FiapCloudGames.UsersApi
+        algorithm: HS256
+        secret: development-only-secret-key-change-me-123456789
+
+plugins:
+  - name: prometheus
+    config:
+      per_consumer: true
+      status_code_metrics: true
+      latency_metrics: true
+      bandwidth_metrics: true
+      upstream_health_metrics: true
+
+  - name: jwt
+    route: catalog-games-routes
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+
+  - name: jwt
+    route: catalog-user-routes
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp

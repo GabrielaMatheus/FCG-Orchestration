@@ -1,0 +1,122 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kong-jwt-secret
+type: Opaque
+stringData:
+  jwt-secret: CHANGE-ME
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-declarative-config
+data:
+  kong.yml: |
+    _format_version: "3.0"
+    _transform: true
+
+    services:
+      - name: users-api
+        url: http://users-api:80
+        routes:
+          - name: users-routes
+            paths:
+              - /api/users
+            strip_path: false
+
+      - name: catalog-api
+        url: http://catalog-api:80
+        routes:
+          - name: catalog-games-routes
+            paths:
+              - /api/games
+            strip_path: false
+          - name: catalog-user-routes
+            paths:
+              - ~/api/users/[^/]+/games/[^/]+/purchase$
+              - ~/api/users/[^/]+/library$
+            strip_path: false
+
+    consumers:
+      - username: fcg-users-api
+        jwt_secrets:
+          - key: FiapCloudGames.UsersApi
+            algorithm: HS256
+            secret: CHANGE-ME
+
+    plugins:
+      - name: prometheus
+        config:
+          per_consumer: true
+          status_code_metrics: true
+          latency_metrics: true
+          bandwidth_metrics: true
+          upstream_health_metrics: true
+      - name: jwt
+        route: catalog-games-routes
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+      - name: jwt
+        route: catalog-user-routes
+        config:
+          key_claim_name: iss
+          claims_to_verify:
+            - exp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.7
+          ports:
+            - containerPort: 8000
+              name: proxy
+            - containerPort: 8001
+              name: admin
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /kong/declarative/kong.yml
+            - name: KONG_ADMIN_LISTEN
+              value: 0.0.0.0:8001
+          volumeMounts:
+            - name: kong-config
+              mountPath: /kong/declarative
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+      volumes:
+        - name: kong-config
+          configMap:
+            name: kong-declarative-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+spec:
+  selector:
+    app: kong
+  ports:
+    - name: proxy
+      port: 80
+      targetPort: 8000
+  type: LoadBalancer

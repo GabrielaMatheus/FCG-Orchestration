@@ -15,6 +15,29 @@ services:
       retries: 12
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+
+  kong:
+    image: kong:3.7
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/declarative/kong.yml
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ./kong/kong.yml:/kong/declarative/kong.yml:ro
+    depends_on:
+      users-api:
+        condition: service_started
+      catalog-api:
+        condition: service_started
 
   users-api:
     build:
@@ -48,6 +71,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__CatalogDatabase: ${CATALOG_DATABASE:-Data Source=/data/catalog.db}
+      ConnectionStrings__MongoDb: ${MONGODB_CONNECTION:-mongodb://mongodb:27017}
+      ConnectionStrings__Redis: ${REDIS_CONNECTION:-redis:6379}
+      MongoDb__Database: ${MONGODB_DATABASE:-fcg_catalog}
       Jwt__Issuer: FiapCloudGames.UsersApi
       Jwt__Audience: FiapCloudGames
       Jwt__SecretKey: ${JWT_SECRET:-development-only-secret-key-change-me-123456789}
@@ -59,6 +85,10 @@ services:
       rabbitmq:
         condition: service_healthy
       users-api:
+        condition: service_started
+      mongodb:
+        condition: service_started
+      redis:
         condition: service_started
     volumes:
       - catalog-data:/data
@@ -79,22 +109,48 @@ services:
       rabbitmq:
         condition: service_healthy
 
-  notifications-api:
-    build:
-      context: ../FCG-NotificationsAPI
+  mongodb:
+    image: mongo:7
     ports:
-      - "5104:8080"
-    environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ASPNETCORE_URLS: http://+:8080
-      RabbitMq__Host: rabbitmq
-      RabbitMq__Username: ${RABBITMQ_USER:-guest}
-      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     depends_on:
-      rabbitmq:
-        condition: service_healthy
+      users-api:
+        condition: service_started
+      catalog-api:
+        condition: service_started
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_started
 
 volumes:
   rabbitmq-data:
   users-data:
   catalog-data:
+  mongodb-data:
+  grafana-data:
