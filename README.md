@@ -46,7 +46,7 @@ Na raiz deste repositório:
 docker compose up --build
 ```
 
-Esse comando sobe RabbitMQ, Kong, UsersAPI, CatalogAPI, PaymentsAPI, MongoDB, Redis, Prometheus e Grafana.
+Esse comando sobe RabbitMQ, Kong, UsersAPI, CatalogAPI, PaymentsAPI, MongoDB, Redis, Azurite, Prometheus e Grafana.
 
 A função serverless não fica no compose principal porque substitui o container contínuo de notificações. Ela roda separadamente com Azure Functions Core Tools.
 
@@ -72,6 +72,7 @@ func start --script-root .\src\FiapCloudGames.NotificationsFunction
 | RabbitMQ Management | `http://localhost:15672` |
 | Prometheus | `http://localhost:9090` |
 | Grafana | `http://localhost:3000` |
+| Azurite | portas `10000`, `10001`, `10002` |
 
 Credenciais locais:
 

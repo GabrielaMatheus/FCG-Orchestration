@@ -121,6 +121,16 @@ services:
     ports:
       - "6379:6379"
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:3.33.0
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0
+    volumes:
+      - azurite-data:/data
+
   prometheus:
     image: prom/prometheus:v2.54.1
     ports:
@@ -154,3 +164,4 @@ volumes:
   catalog-data:
   mongodb-data:
   grafana-data:
+  azurite-data:
