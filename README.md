@@ -1,176 +1,172 @@
-# FIAP Cloud Games - Orquestração
+# FIAP Cloud Games — Fase 3
 
-Repositório responsável pela execução integrada da Fase 3 do FIAP Cloud Games.
+Aplicação de venda de jogos com microsserviços .NET 8, API Gateway, processamento assíncrono, função serverless, observabilidade, MongoDB e Redis.
 
-Nesta fase, a arquitetura de microsserviços foi profissionalizada com API Gateway, serverless, observabilidade, persistência poliglota com MongoDB e cache distribuído com Redis.
+## Arquitetura
 
-## Stack escolhida
+O Kong recebe as chamadas externas. Cadastro e login são públicos; as demais rotas de negócio exigem JWT. A UsersAPI emite o token, e Kong e APIs validam a autenticação. As APIs aplicam as regras de autorização por usuário e perfil.
+
+A CatalogAPI publica OrderPlacedEvent no RabbitMQ. A PaymentsAPI simula o pagamento e publica PaymentProcessedEvent. CatalogAPI e NotificationsFunction consomem esse evento independentemente: uma atualiza a biblioteca; a outra simula a confirmação por e-mail. O cadastro publica UserCreatedEvent e aciona a mensagem de boas-vindas.
+
+Os e-mails são simulados, sem envio real. A NotificationsFunction registra EMAIL_SENT no console e no Loki; o Grafana permite consultar os logs centralizados. A Function usa Azure Functions Core Tools no ambiente local, fora do container contínuo da antiga NotificationsAPI.
 
 | Requisito | Implementação |
 | --- | --- |
-| API Gateway | Kong Gateway em modo DB-less |
-| Serverless | Azure Functions .NET 8 isolated worker com RabbitMQ Trigger |
-| Observabilidade | Prometheus + Grafana |
-| NoSQL | MongoDB na CatalogAPI para avaliações flexíveis de jogos |
-| Cache distribuído | Redis na CatalogAPI para consultas do catálogo |
+| Gateway | Kong DB-less com JWT e rotas versionadas |
+| Serverless | Azure Functions .NET 8 isolated, RabbitMQ Trigger |
+| Observabilidade — Opção A | Prometheus + Grafana implantáveis por manifestos Kubernetes |
+| Logs centralizados | Loki + painel de logs no Grafana |
+| NoSQL | MongoDB.Driver; avaliações com metadata flexível |
+| Cache distribuído | Redis com IDistributedCache; catálogo e consultas por ID |
 | Mensageria | RabbitMQ + MassTransit |
+| Persistência relacional | SQLite separado por serviço |
 
 ## Repositórios
 
-| Repositório | Responsabilidade |
+- [UsersAPI](https://github.com/GabrielaMatheus/FCG-UsersAPI)
+- [CatalogAPI](https://github.com/GabrielaMatheus/FCG-CatalogAPI)
+- [PaymentsAPI](https://github.com/GabrielaMatheus/FCG-PaymentsAPI)
+- [NotificationsFunction](https://github.com/GabrielaMatheus/FCG-NotificationsFunction)
+- [Orchestration](https://github.com/GabrielaMatheus/FCG-Orchestration)
+
+A NotificationsAPI pertence à Fase 2 e não participa da execução da Fase 3. Os contratos de eventos estão em contracts/Events.cs e usam o namespace FiapCloudGames.Contracts.
+
+## Pré-requisitos e pastas
+
+Docker Desktop iniciado com containers Linux, .NET 8 SDK, Azure Functions Core Tools v4 e PowerShell. O Node.js é necessário se Core Tools for instalado via npm. Para Kubernetes local: kubectl e kind.
+
+Os cinco repositórios devem ficar lado a lado dentro de FCG-Microservices. Os comandos abaixo partem de FCG-Orchestration, exceto quando indicado.
+
+## Execução rápida com Docker Compose
+
+    docker compose up -d --build
+
+Em outro terminal, na pasta FCG-NotificationsFunction:
+
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1
+
+O script preserva local.settings.json existente e configura o Loki local. O Bypass vale somente para esse processo, sem alterar a política permanente do PowerShell. O terminal da Function deve permanecer aberto.
+
+| Componente | Endereço local |
 | --- | --- |
-| `FCG-UsersAPI` | Cadastro, login, JWT, autorização e publicação de `UserCreatedEvent` |
-| `FCG-CatalogAPI` | Catálogo, biblioteca, compra, MongoDB para reviews e Redis para cache |
-| `FCG-PaymentsAPI` | Simulação de pagamento e publicação de `PaymentProcessedEvent` |
-| `FCG-NotificationsFunction` | Função serverless acionada por filas RabbitMQ |
-| `FCG-Orchestration` | Docker Compose, Kong, RabbitMQ, Prometheus, Grafana, MongoDB, Redis e manifests Kubernetes |
+| Gateway | http://localhost:8000 |
+| Swagger Users | http://localhost:8000/users-swagger/swagger/index.html |
+| Swagger Catalog | http://localhost:8000/catalog-swagger/swagger/index.html |
+| Grafana | http://localhost:3000 |
+| Prometheus | http://localhost:9090 |
+| RabbitMQ | http://localhost:15672 |
+| Loki | http://localhost:3100 |
 
-## Estrutura local esperada
+Grafana: admin / admin. RabbitMQ: guest / guest. Credenciais exclusivamente locais.
+Administrador da aplicação: admin@fiap.com.br / Admin@123!, salvo alteração anterior.
 
-O `docker-compose.yml` espera que os repositórios fiquem lado a lado:
+UsersAPI, CatalogAPI e PaymentsAPI não publicam portas diretas no host. As interfaces de administração e observabilidade são ferramentas de desenvolvimento, não rotas públicas de negócio.
 
-```text
-FCG-Microservices/
-├── FCG-UsersAPI/
-├── FCG-CatalogAPI/
-├── FCG-PaymentsAPI/
-├── FCG-NotificationsFunction/
-└── FCG-Orchestration/
-```
+## Variáveis de ambiente
 
-## Execução local da infraestrutura e microsserviços
+O arquivo .env é opcional e não deve ser versionado. Os padrões do Compose permitem a demonstração local.
 
-Na raiz deste repositório:
-
-```powershell
-docker compose up --build
-```
-
-Esse comando sobe RabbitMQ, Kong, UsersAPI, CatalogAPI, PaymentsAPI, MongoDB, Redis, Azurite, Prometheus e Grafana.
-
-A função serverless não fica no compose principal porque substitui o container contínuo de notificações. Ela roda separadamente com Azure Functions Core Tools.
-
-## Execução local da NotificationsFunction
-
-Em outro terminal:
-
-```powershell
-cd "C:\Users\gabri\OneDrive\Documentos\FCG-Microservices\FCG-NotificationsFunction"
-Copy-Item .\src\FiapCloudGames.NotificationsFunction\local.settings.example.json .\src\FiapCloudGames.NotificationsFunction\local.settings.json
-func start --script-root .\src\FiapCloudGames.NotificationsFunction
-```
-
-## URLs locais
-
-| Componente | URL |
+| Variável | Uso |
 | --- | --- |
-| API Gateway Kong | `http://localhost:8000` |
-| Kong Admin API local | `http://localhost:8001` |
-| UsersAPI direta | `http://localhost:5101` |
-| CatalogAPI direta | `http://localhost:5102` |
-| PaymentsAPI direta | `http://localhost:5103` |
-| RabbitMQ Management | `http://localhost:15672` |
-| Prometheus | `http://localhost:9090` |
-| Grafana | `http://localhost:3000` |
-| Azurite | portas `10000`, `10001`, `10002` |
+| JWT_SECRET | Segredo compartilhado por UsersAPI, CatalogAPI e Kong; pelo menos 32 caracteres entre letras, números, _ e - |
+| RABBITMQ_USER / RABBITMQ_PASSWORD | Credenciais do broker; o script gera o hash e importa usuário, permissões e filas |
+| ADMIN_EMAIL / ADMIN_PASSWORD | Administrador inicial; mudar a variável não redefine uma conta já persistida |
+| CATALOG_DATABASE | Connection string SQLite do catálogo |
+| MONGODB_CONNECTION / MONGODB_DATABASE | Conexão e banco de avaliações |
+| REDIS_CONNECTION | Endereço do Redis |
 
-Credenciais locais:
+O Kong renderiza sua configuração a partir de um template sem segredo. No Kubernetes, recebe JWT_SECRET do Secret fcg-runtime. A mesma chave é usada nas APIs. Os padrões locais não representam uma configuração de produção.
 
-```text
-RabbitMQ: guest / guest
-Grafana: admin / admin
-```
+## Execução da entrega com Kubernetes
 
-## Gateway
+A implantação usa um cluster kind chamado fcg-fase3 e namespace fcg. O contexto é informado explicitamente nos scripts. Todos os componentes do cluster são gerenciados por Deployments; os bancos possuem volumes persistentes. APIs e administração do Kong usam Services internos.
 
-O Kong é a porta de entrada única para chamadas externas:
+Instalação inicial do kind, caso necessário:
 
-```text
-http://localhost:8000/api/users
-http://localhost:8000/api/games
-http://localhost:8000/api/users/{userId}/games/{gameId}/purchase
-```
+    winget install --id Kubernetes.kind --exact --source winget
 
-As rotas de `CatalogAPI` usam o plugin JWT do Kong. O token é emitido pela `UsersAPI` e enviado no header:
+Depois de instalar, abrir um novo PowerShell para atualizar o PATH. Criar o cluster apenas uma vez:
 
-```text
-Authorization: Bearer <token>
-```
+    kind create cluster --name fcg-fase3 --wait 120s
 
-## Fluxo de mensageria
+Na pasta FCG-Orchestration:
 
-```text
-UsersAPI
-  publica UserCreatedEvent
-        ↓
-NotificationsFunction
-  consome a fila notifications-user-created e registra EMAIL_SENT Type=Welcome
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Deploy-Kubernetes.ps1
 
-CatalogAPI
-  publica OrderPlacedEvent
-        ↓
-PaymentsAPI
-  consome OrderPlacedEvent e publica PaymentProcessedEvent
-        ↓
-CatalogAPI
-  consome PaymentProcessedEvent e atualiza biblioteca se aprovado
-        ↓
-NotificationsFunction
-  consome a fila notifications-payment-processed e registra EMAIL_SENT Type=PurchaseConfirmation
-```
+Esse script compila e carrega as imagens no kind, cria o Secret local, aplica a configuração com Kustomize e aguarda os Deployments. O arquivo kustomization.yaml é a entrada da implantação completa; os arquivos individuais em k8s dependem das configurações e Secrets criados por esse fluxo.
 
-## Observabilidade
+Para acessar o ambiente, em outro terminal:
 
-A opção escolhida foi a stack open-source Prometheus + Grafana.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Open-Kubernetes.ps1
 
-UsersAPI e CatalogAPI expõem métricas no endpoint:
+| Componente Kubernetes | Endereço |
+| --- | --- |
+| Gateway | http://localhost:18000 |
+| Grafana | http://localhost:13000 |
+| Prometheus | http://localhost:19090 |
+| Loki | http://localhost:13100 |
+| RabbitMQ AMQP | localhost:5673 |
 
-```text
-/metrics
-```
+Os encaminhamentos ficam ativos enquanto o script estiver rodando. Ctrl+C os encerra sem apagar o cluster ou os dados.
 
-O Prometheus coleta essas métricas e o Grafana possui dashboard provisionado automaticamente para visualizar contagem de requisições, latência HTTP, taxa de erros e chamadas roteadas pelo Kong.
+A Function roda localmente conectada ao broker do Kubernetes. Encerrar a execução anterior da Function com Ctrl+C antes de iniciar este modo. Manter o Azurite disponível:
 
-## NoSQL e cache
+    docker compose up -d azurite
 
-Na `CatalogAPI`, o MongoDB foi usado para armazenar avaliações de jogos:
+Na pasta FCG-NotificationsFunction:
 
-```text
-GET /api/games/{id}/reviews
-POST /api/games/{id}/reviews
-```
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -RabbitMQConnection amqp://guest:guest@localhost:5673/ -LokiUrl http://localhost:13100
 
-Esse dado foi escolhido para NoSQL porque avaliações podem crescer bastante e aceitar campos flexíveis em `metadata`.
+Docker Compose e Kubernetes possuem bancos e filas independentes. Uma conta ou compra criada em um ambiente não aparece automaticamente no outro.
 
-O Redis foi usado como cache distribuído das consultas do catálogo, reduzindo leituras repetidas no SQLite.
+## Teste integrado
 
-## Kubernetes
+Com a Function em execução, na pasta FCG-Orchestration:
 
-Este repositório versiona manifests Kubernetes para RabbitMQ, Kong Gateway, Prometheus/Grafana e MongoDB/Redis.
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fase3.ps1
 
-Os microsserviços continuam com seus próprios manifests nos respectivos repositórios.
+Para testar o Kubernetes:
 
-Aplicação da infraestrutura:
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fase3.ps1 -BaseUrl http://localhost:18000 -GrafanaUrl http://localhost:13000 -PrometheusUrl http://localhost:19090 -LokiUrl http://localhost:13100 -CacheMode Kubernetes
 
-```powershell
-kubectl apply -f k8s/rabbitmq.yaml
-kubectl apply -f k8s/mongodb-redis.yaml
-kubectl apply -f k8s/kong-gateway.yaml
-kubectl apply -f k8s/observability.yaml
-```
+O teste cria uma conta fictícia única, faz login, consulta jogos, grava e consulta uma avaliação no MongoDB, inicia uma compra, aguarda a biblioteca e verifica os dois tipos de notificação no Loki. Também verifica bloqueio sem JWT, saúde das coletas do Prometheus e disponibilidade do Grafana. Os dados de demonstração ficam persistidos; o teste não limpa os bancos.
 
-Antes de usar em ambiente real, substituir valores `CHANGE-ME` em Secrets.
+Para conferir o Redis no Compose:
 
-## Contratos de integração
+    docker compose exec -T redis redis-cli --scan --pattern "fcg-catalog:*"
+    docker compose exec -T redis redis-cli TTL fcg-catalog:games:list
 
-Os contratos compartilhados estão documentados em:
+No Kubernetes:
 
-```text
-contracts/Events.cs
-```
+    kubectl --context kind-fcg-fase3 -n fcg exec deployment/redis -- redis-cli --scan --pattern "fcg-catalog:*"
 
-Todos os microsserviços usam o namespace:
+O cache expira após cinco minutos. Criação, edição e exclusão invalidam as entradas relacionadas; requisições repetidas consultam o Redis enquanto a entrada é válida.
 
-```csharp
-namespace FiapCloudGames.Contracts;
-```
+## Observabilidade e demonstração
+
+No Grafana, abrir o dashboard FIAP Cloud Games - Observabilidade, na pasta FIAP Cloud Games. Selecionar os últimos 15 minutos e gerar requisições pelo Gateway. Os painéis mostram total de requisições, contagem por código HTTP, requisições por segundo, latência p95, erros 5xx por segundo, chamadas do Kong e logs da Function. Sem tráfego suficiente, painéis baseados em rate podem levar alguns segundos para mostrar valores.
+
+Em Explore, selecionar Loki e consultar:
+
+    {service="notifications-function"}
+
+O registro contém tipo, destinatário, assunto e corpo da notificação simulada. As duas notificações são produzidas por triggers de fila; a API não chama a Function diretamente.
+
+No Prometheus, a página Targets deve mostrar users-api, catalog-api e kong como UP. Na implantação Kubernetes, o Grafana recebe automaticamente a fonte de dados e o dashboard por ConfigMaps.
+
+## Escopo de implantação
+
+O ambiente de demonstração é local: microsserviços e observabilidade no Kubernetes, Function no Azure Functions Core Tools e Storage emulado pelo Azurite. Não há publicação automática na Azure. O repositório da Function contém Bicep para o ambiente de nuvem, cuja implantação exige assinatura, conectividade com RabbitMQ/Loki e recursos cobrados.
+
+## Entrega acadêmica
+
+O registro dos testes da versão de entrega está em [VALIDACAO.md](VALIDACAO.md).
+
+A entrega inclui vídeo de até 20 minutos, links dos cinco repositórios e este README como guia central. O vídeo demonstra requisições e segurança pelo Gateway, Function acionada e logs centralizados, dashboard em tempo real, MongoDB e cache.
+
+O relatório PDF ou TXT enviado à faculdade deve conter nome do grupo, participantes e usernames do Discord, link da documentação, links dos repositórios e link do vídeo. Gravação, publicação do vídeo e envio do relatório são etapas de entrega independentes da execução do código.
+
+## Referências
+
+- [API HTTP do Loki](https://grafana.com/docs/loki/latest/reference/loki-http-api/)
+- [Kubernetes local com kind](https://kind.sigs.k8s.io/docs/user/quick-start/)

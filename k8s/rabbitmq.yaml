@@ -6,14 +6,6 @@ data:
   RABBITMQ_DEFAULT_USER: guest
 ---
 apiVersion: v1
-kind: Secret
-metadata:
-  name: rabbitmq-secret
-type: Opaque
-stringData:
-  RABBITMQ_DEFAULT_PASS: CHANGE-ME
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: rabbitmq-data
@@ -30,6 +22,8 @@ metadata:
   name: rabbitmq
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: rabbitmq
@@ -38,9 +32,11 @@ spec:
       labels:
         app: rabbitmq
     spec:
+      hostname: rabbitmq
       containers:
         - name: rabbitmq
           image: rabbitmq:3.13-management-alpine
+          command: [/bin/sh, /bootstrap/start.sh]
           ports:
             - containerPort: 5672
               name: amqp
@@ -49,12 +45,22 @@ spec:
           envFrom:
             - configMapRef:
                 name: rabbitmq-config
-            - secretRef:
-                name: rabbitmq-secret
+          env:
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-runtime
+                  key: RabbitMq__Password
           volumeMounts:
+            - name: definitions
+              mountPath: /etc/rabbitmq/rabbitmq.conf
+              subPath: rabbitmq.conf
+            - name: definitions
+              mountPath: /bootstrap
             - name: rabbitmq-data
               mountPath: /var/lib/rabbitmq
           readinessProbe:
+            timeoutSeconds: 10
             exec:
               command:
                 - rabbitmq-diagnostics
@@ -63,6 +69,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
+            timeoutSeconds: 10
             exec:
               command:
                 - rabbitmq-diagnostics
@@ -71,6 +78,9 @@ spec:
             initialDelaySeconds: 30
             periodSeconds: 30
       volumes:
+        - name: definitions
+          configMap:
+            name: rabbitmq-definitions
         - name: rabbitmq-data
           persistentVolumeClaim:
             claimName: rabbitmq-data

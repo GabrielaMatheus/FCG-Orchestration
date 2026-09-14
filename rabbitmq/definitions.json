@@ -1,4 +1,12 @@
 {
+  "users": [
+    {
+      "name": "FCG_RABBIT_USER",
+      "password_hash": "FCG_RABBIT_HASH",
+      "hashing_algorithm": "rabbit_password_hashing_sha256",
+      "tags": ["administrator"]
+    }
+  ],
   "vhosts": [
     {
       "name": "/"
@@ -6,7 +14,7 @@
   ],
   "permissions": [
     {
-      "user": "guest",
+      "user": "FCG_RABBIT_USER",
       "vhost": "/",
       "configure": ".*",
       "write": ".*",

@@ -9,10 +9,18 @@ services:
         paths:
           - /api/users
         strip_path: false
-      - name: users-swagger
+      - name: users-register
         paths:
-          - /users-swagger
-        strip_path: true
+          - ~/api/users/?$
+        methods: [POST]
+        regex_priority: 10
+        strip_path: false
+      - name: users-login
+        paths:
+          - ~/api/users/login/?$
+        methods: [POST]
+        regex_priority: 10
+        strip_path: false
 
   - name: catalog-api
     url: http://catalog-api:8080
@@ -26,9 +34,21 @@ services:
           - ~/api/users/[^/]+/games/[^/]+/purchase$
           - ~/api/users/[^/]+/library$
         strip_path: false
+
+  - name: users-documentation
+    url: http://users-api:8080/swagger
+    routes:
+      - name: users-swagger
+        paths:
+          - /users-swagger/swagger
+        strip_path: true
+
+  - name: catalog-documentation
+    url: http://catalog-api:8080/swagger
+    routes:
       - name: catalog-swagger
         paths:
-          - /catalog-swagger
+          - /catalog-swagger/swagger
         strip_path: true
 
 consumers:
@@ -36,9 +56,14 @@ consumers:
     jwt_secrets:
       - key: FiapCloudGames.UsersApi
         algorithm: HS256
-        secret: development-only-secret-key-change-me-123456789
+        secret: FCG_JWT_SECRET_PLACEHOLDER
 
 plugins:
+  - name: jwt
+    route: users-routes
+    config:
+      key_claim_name: iss
+      claims_to_verify: [exp]
   - name: prometheus
     config:
       per_consumer: true

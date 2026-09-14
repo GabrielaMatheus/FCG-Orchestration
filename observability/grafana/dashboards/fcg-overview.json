@@ -3,52 +3,178 @@
   "uid": "fcg-overview",
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "5s",
   "panels": [
     {
       "type": "timeseries",
       "title": "Requisições por segundo",
-      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "sum(rate(http_requests_received_total[1m])) by (job)",
-          "legendFormat": "{{job}}"
+          "legendFormat": "{{job}}",
+          "refId": "A"
         }
-      ]
+      ],
+      "id": 1,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
       "type": "timeseries",
       "title": "Latência HTTP p95",
-      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le, job))",
-          "legendFormat": "{{job}}"
+          "legendFormat": "{{job}}",
+          "refId": "A"
         }
-      ]
+      ],
+      "id": 2,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
       "type": "timeseries",
-      "title": "Erros HTTP 5xx",
-      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "title": "Erros HTTP 5xx por segundo",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
-          "expr": "sum(rate(http_requests_received_total{code=~\"5..\"}[1m])) by (job)",
-          "legendFormat": "{{job}}"
+          "expr": "(sum(rate(http_requests_received_total{code=~\"5..\"}[1m])) by (job)) or (0 * sum(rate(http_requests_received_total[1m])) by (job))",
+          "legendFormat": "{{job}}",
+          "refId": "A"
         }
-      ]
+      ],
+      "id": 3,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
     },
     {
       "type": "timeseries",
       "title": "Chamadas roteadas pelo Kong",
-      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
       "targets": [
         {
           "expr": "sum(rate(kong_http_requests_total[1m])) by (service)",
-          "legendFormat": "{{service}}"
+          "legendFormat": "{{service}}",
+          "refId": "A"
+        }
+      ],
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      }
+    },
+    {
+      "id": 5,
+      "title": "Total de requisições",
+      "type": "stat",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(http_requests_received_total) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "values": false
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Contagem por código HTTP",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(http_requests_received_total) by (job, code)",
+          "legendFormat": "{{job}} HTTP {{code}}"
         }
       ]
+    },
+    {
+      "id": 7,
+      "title": "Notificações serverless — logs centralizados",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"notifications-function\"}",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true
+      }
     }
-  ]
+  ],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  }
 }
