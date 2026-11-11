@@ -1,0 +1,12 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - apps.yaml
+  - rabbitmq.yaml
+  - kong-gateway.yaml
+configMapGenerator:
+  - name: kong-template
+    files:
+      - kong.yml=kong/kong.yml
+      - start.sh=kong/start.sh

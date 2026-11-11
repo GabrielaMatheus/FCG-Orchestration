@@ -1,27 +1,43 @@
-# FIAP Cloud Games — Fase 3
+# FIAP Cloud Games - Fase 4
 
-Aplicação de venda de jogos com microsserviços .NET 8, API Gateway, processamento assíncrono, função serverless, observabilidade, MongoDB e Redis.
+Solucao cloud-native em microsservicos .NET 8 no Microsoft Azure, com AKS, Azure Container Registry, PostgreSQL Flexible Server, Cosmos DB for MongoDB, Azure Managed Redis, Elastic Cloud, Azure Key Vault, RabbitMQ, Kong e CI/CD por GitHub Actions.
+
+## Requisitos atendidos
+
+| Requisito | Implementacao |
+| --- | --- |
+| Kubernetes gerenciado | Azure Kubernetes Service com node pool gerenciado e autoscaling |
+| Registry privado | Azure Container Registry privado |
+| Exposicao externa | Kong por Service `LoadBalancer` do Azure |
+| NoSQL | Cosmos DB for MongoDB e driver oficial `MongoDB.Driver`; avaliacoes com metadata flexivel |
+| Cache distribuido | Azure Managed Redis e `IDistributedCache`; header `X-Cache` demonstra HIT/MISS |
+| Busca avancada | Elastic Cloud hospedado no Azure, `multi_match`, fuzziness `AUTO` e score de relevancia |
+| Sincronizacao do indice | Create/Update/Delete no CatalogAPI e reconciliacao no startup |
+| CI/CD | Build, testes, imagem versionada, Trivy, ACR e rolling update no AKS |
+| Segredos | Azure Key Vault sincronizado com Kubernetes Secret e Secrets Store CSI Driver |
+| Deploy sem downtime | Duas replicas, readiness/liveness probes e `maxUnavailable: 0` |
 
 ## Arquitetura
 
-O Kong recebe as chamadas externas. Cadastro e login são públicos; as demais rotas de negócio exigem JWT. A UsersAPI emite o token, e Kong e APIs validam a autenticação. As APIs aplicam as regras de autorização por usuário e perfil.
+```text
+Internet
+  -> Azure Load Balancer
+    -> Kong
+      -> UsersAPI (2 replicas) -> Azure PostgreSQL
+      -> CatalogAPI (2 replicas)
+           -> Azure PostgreSQL
+           -> Cosmos DB for MongoDB
+           -> Azure Managed Redis
+           -> Elastic Cloud on Azure
+      -> RabbitMQ -> PaymentsAPI / NotificationsFunction
 
-A CatalogAPI publica OrderPlacedEvent no RabbitMQ. A PaymentsAPI simula o pagamento e publica PaymentProcessedEvent. CatalogAPI e NotificationsFunction consomem esse evento independentemente: uma atualiza a biblioteca; a outra simula a confirmação por e-mail. O cadastro publica UserCreatedEvent e aciona a mensagem de boas-vindas.
+GitHub main -> Actions -> testes -> Docker -> Trivy -> ACR -> rolling update AKS
+Azure Key Vault -> Kubernetes Secret + CSI rotation -> pods
+```
 
-Os e-mails são simulados, sem envio real. A NotificationsFunction registra EMAIL_SENT no console e no Loki; o Grafana permite consultar os logs centralizados. A Function usa Azure Functions Core Tools no ambiente local, fora do container contínuo da antiga NotificationsAPI.
+O PostgreSQL substitui o SQLite em producao para que as replicas compartilhem persistencia transacional. Cosmos DB armazena as avaliacoes flexiveis via protocolo MongoDB; Redis nao e fonte de verdade; Elasticsearch e um indice reconstruivel.
 
-| Requisito | Implementação |
-| --- | --- |
-| Gateway | Kong DB-less com JWT e rotas versionadas |
-| Serverless | Azure Functions .NET 8 isolated, RabbitMQ Trigger |
-| Observabilidade — Opção A | Prometheus + Grafana implantáveis por manifestos Kubernetes |
-| Logs centralizados | Loki + painel de logs no Grafana |
-| NoSQL | MongoDB.Driver; avaliações com metadata flexível |
-| Cache distribuído | Redis com IDistributedCache; catálogo e consultas por ID |
-| Mensageria | RabbitMQ + MassTransit |
-| Persistência relacional | SQLite separado por serviço |
-
-## Repositórios
+## Repositorios
 
 - [UsersAPI](https://github.com/GabrielaMatheus/FCG-UsersAPI)
 - [CatalogAPI](https://github.com/GabrielaMatheus/FCG-CatalogAPI)
@@ -29,144 +45,139 @@ Os e-mails são simulados, sem envio real. A NotificationsFunction registra EMAI
 - [NotificationsFunction](https://github.com/GabrielaMatheus/FCG-NotificationsFunction)
 - [Orchestration](https://github.com/GabrielaMatheus/FCG-Orchestration)
 
-A NotificationsAPI pertence à Fase 2 e não participa da execução da Fase 3. Os contratos de eventos estão em contracts/Events.cs e usam o namespace FiapCloudGames.Contracts.
+## Producao no Azure
 
-## Pré-requisitos e pastas
+Pre-requisitos: assinatura Azure ativa, Azure CLI autenticada, Terraform 1.9+, kubectl, Docker Desktop e uma conta Elastic Cloud com API key de organizacao.
 
-Docker Desktop iniciado com containers Linux, .NET 8 SDK, Azure Functions Core Tools v4 e PowerShell. O Node.js é necessário se Core Tools for instalado via npm. Para Kubernetes local: kubectl e kind.
+> AKS, VMs, PostgreSQL, Managed Redis e Elastic Cloud geram custos. Sempre revise o `terraform plan`. Para um ambiente academico, grave as evidencias e execute `terraform destroy` assim que terminar.
 
-Os cinco repositórios devem ficar lado a lado dentro de FCG-Microservices. Os comandos abaixo partem de FCG-Orchestration, exceto quando indicado.
+### 1. Provisionar a infraestrutura
 
-## Execução rápida com Docker Compose
+Para quem nunca usou Azure, siga primeiro o [guia bem detalhado](docs/GUIA-AZURE-PASSO-A-PASSO.md). O assistente abaixo faz login, pede a chave Elastic sem exibi-la, gera e valida o plano e exige a confirmacao `APLICAR` antes de criar recursos pagos:
 
-    docker compose up -d --build
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Provision-Azure.ps1
+```
 
-Em outro terminal, na pasta FCG-NotificationsFunction:
+Os comandos manuais equivalentes sao:
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1
+```powershell
+az login
+az account show
+cd infra/azure
+Copy-Item terraform.tfvars.example terraform.tfvars
+# Edite apenas subscription id e e-mail no arquivo copiado.
+$env:TF_VAR_elastic_cloud_api_key='<ELASTIC_CLOUD_API_KEY>'
+terraform init
+terraform fmt -check
+terraform validate
+terraform plan -out fase4.tfplan
+terraform apply fase4.tfplan
+```
 
-O script preserva local.settings.json existente e configura o Loki local. O Bypass vale somente para esse processo, sem alterar a política permanente do PowerShell. O terminal da Function deve permanecer aberto.
+O Terraform cria resource group, rede, AKS, ACR, PostgreSQL Flexible Server, Cosmos DB for MongoDB, Azure Managed Redis, Elastic Cloud on Azure, Key Vault e a identidade OIDC usada pelos workflows. Senhas sao geradas aleatoriamente e armazenadas no Key Vault.
 
-| Componente | Endereço local |
+O `terraform.tfstate` contem valores sensiveis, embora estejam marcados como sensitive. Ele esta ignorado pelo Git; em trabalho compartilhado, use backend remoto criptografado.
+
+Se a assinatura ja tiver um Cosmos DB Free Tier, altere `cosmos_enable_free_tier = false` antes do plan.
+
+### 2. Primeiro deploy no AKS
+
+Na raiz do repositorio de orquestracao:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Deploy-Azure.ps1
+```
+
+O script usa os outputs do Terraform, configura o contexto AKS, compila e envia UsersAPI, CatalogAPI e PaymentsAPI ao ACR, le os valores do Key Vault sem exibi-los, cria o Secret `fcg-runtime`, configura a rotacao pelo CSI Driver, aplica `k8s/overlays/azure` e aguarda todos os rollouts. Os arquivos temporarios de segredo sao removidos no bloco `finally`.
+
+Para pular o build depois que as imagens ja existirem:
+
+```powershell
+.\scripts\Deploy-Azure.ps1 -SkipImageBuild
+```
+
+Para obter o endereco publico:
+
+```powershell
+kubectl -n fcg get service kong
+```
+
+### 3. Configurar o CI/CD no GitHub
+
+Crie o Environment `production` nos repositorios UsersAPI e CatalogAPI. Cadastre estas Repository Variables usando `terraform output github_repository_variables`:
+
+| Variable | Origem |
 | --- | --- |
-| Gateway | http://localhost:8000 |
-| Swagger Users | http://localhost:8000/users-swagger/swagger/index.html |
-| Swagger Catalog | http://localhost:8000/catalog-swagger/swagger/index.html |
-| Grafana | http://localhost:3000 |
-| Prometheus | http://localhost:9090 |
-| RabbitMQ | http://localhost:15672 |
-| Loki | http://localhost:3100 |
+| `AZURE_CLIENT_ID` | output `github_actions_client_id` |
+| `AZURE_TENANT_ID` | output `azure_tenant_id` |
+| `AZURE_SUBSCRIPTION_ID` | output `azure_subscription_id` |
+| `AZURE_RESOURCE_GROUP` | output `resource_group_name` |
+| `AKS_CLUSTER_NAME` | output `cluster_name` |
+| `ACR_NAME` | output `acr_name` |
+| `ACR_LOGIN_SERVER` | output `acr_login_server` |
+| `ACR_REPOSITORY` | `fcg-users-api` ou `fcg-catalog-api` |
 
-Grafana: admin / admin. RabbitMQ: guest / guest. Credenciais exclusivamente locais.
-Administrador da aplicação: admin@fiap.com.br / Admin@123!, salvo alteração anterior.
+Um push em `main` executa restore, build, testes, build da imagem com tag do SHA, scan Trivy, push no ACR e rolling update apenas do Deployment correspondente. O Azure Login usa OIDC e nao exige client secret.
 
-UsersAPI, CatalogAPI e PaymentsAPI não publicam portas diretas no host. As interfaces de administração e observabilidade são ferramentas de desenvolvimento, não rotas públicas de negócio.
+## Desenvolvimento local
 
-## Variáveis de ambiente
+Copie `.env.example` para `.env` e preencha os valores locais; nunca versione `.env`.
 
-O arquivo .env é opcional e não deve ser versionado. Os padrões do Compose permitem a demonstração local.
+```powershell
+docker compose config
+docker compose up -d --build
+```
 
-| Variável | Uso |
+| Componente | URL local |
 | --- | --- |
-| JWT_SECRET | Segredo compartilhado por UsersAPI, CatalogAPI e Kong; pelo menos 32 caracteres entre letras, números, _ e - |
-| RABBITMQ_USER / RABBITMQ_PASSWORD | Credenciais do broker; o script gera o hash e importa usuário, permissões e filas |
-| ADMIN_EMAIL / ADMIN_PASSWORD | Administrador inicial; mudar a variável não redefine uma conta já persistida |
-| CATALOG_DATABASE | Connection string SQLite do catálogo |
-| MONGODB_CONNECTION / MONGODB_DATABASE | Conexão e banco de avaliações |
-| REDIS_CONNECTION | Endereço do Redis |
+| Gateway | `http://localhost:8000` |
+| Swagger Users | `http://localhost:8000/users-swagger/swagger/index.html` |
+| Swagger Catalog | `http://localhost:8000/catalog-swagger/swagger/index.html` |
+| OpenSearch local compativel | `http://localhost:9200` |
+| Grafana | `http://localhost:3000` |
+| Prometheus | `http://localhost:9090` |
 
-O Kong renderiza sua configuração a partir de um template sem segredo. No Kubernetes, recebe JWT_SECRET do Secret fcg-runtime. A mesma chave é usada nas APIs. Os padrões locais não representam uma configuração de produção.
+O container OpenSearch existe apenas para desenvolvimento e usa a mesma API REST necessaria aos testes. Producao utiliza Elasticsearch gerenciado no Elastic Cloud, hospedado em `azure-eastus2` com HTTPS.
 
-## Execução da entrega com Kubernetes
+## Validacao funcional
 
-A implantação usa um cluster kind chamado fcg-fase3 e namespace fcg. O contexto é informado explicitamente nos scripts. Todos os componentes do cluster são gerenciados por Deployments; os bancos possuem volumes persistentes. APIs e administração do Kong usam Services internos.
+Depois de cadastrar ou manter o jogo inicial `Aventura Espacial`, execute:
 
-Instalação inicial do kind, caso necessário:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fase4.ps1 `
+  -BaseUrl http://localhost:8000 `
+  -AdminEmail '<email>' `
+  -AdminPassword '<senha>'
+```
 
-    winget install --id Kubernetes.kind --exact --source winget
+O script autentica, consulta o catalogo duas vezes, exige `X-Cache: HIT` na segunda chamada, busca `Avetura` e valida o resultado fuzzy em ordem decrescente de score.
 
-Depois de instalar, abrir um novo PowerShell para atualizar o PATH. Criar o cluster apenas uma vez:
+## Seguranca
 
-    kind create cluster --name fcg-fase3 --wait 120s
+- Nenhuma credencial real ou connection string e versionada em appsettings, workflows ou YAMLs.
+- GitHub usa federacao OIDC com uma Azure Managed Identity.
+- AKS recebe permissao `AcrPull`; GitHub recebe somente `AcrPush` e acesso de escrita no AKS.
+- Key Vault guarda senhas e connection strings e o CSI Driver faz rotacao automatica.
+- PostgreSQL usa subnet delegada privada e TLS.
+- Cosmos DB aceita a subnet do AKS; Redis e Elastic Cloud usam TLS e autenticacao.
+- A pipeline bloqueia imagens com vulnerabilidades HIGH/CRITICAL corrigiveis.
+- Containers das APIs removem capabilities Linux e impedem privilege escalation.
 
-Na pasta FCG-Orchestration:
+## Encerrar o ambiente e parar custos
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Deploy-Kubernetes.ps1
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Destroy-Azure.ps1
+```
 
-Esse script compila e carrega as imagens no kind, cria o Secret local, aplica a configuração com Kustomize e aguarda os Deployments. O arquivo kustomization.yaml é a entrada da implantação completa; os arquivos individuais em k8s dependem das configurações e Secrets criados por esse fluxo.
+Confirme no Portal do Azure que `rg-fcg-prod` desapareceu e no Elastic Cloud que o deployment nao existe mais.
 
-Para acessar o ambiente, em outro terminal:
+## Entrega academica
 
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Open-Kubernetes.ps1
+- Checklist tecnico: [docs/CHECKLIST-FASE4.md](docs/CHECKLIST-FASE4.md)
+- Roteiro do pitch: [docs/ROTEIRO-PITCH-FASE4.md](docs/ROTEIRO-PITCH-FASE4.md)
+- Modelo do relatorio: [docs/RELATORIO-ENTREGA-FASE4.md](docs/RELATORIO-ENTREGA-FASE4.md)
+- Evidencias de validacao: [VALIDACAO-FASE4.md](VALIDACAO-FASE4.md)
+- Guia Azure para iniciantes: [docs/GUIA-AZURE-PASSO-A-PASSO.md](docs/GUIA-AZURE-PASSO-A-PASSO.md)
 
-| Componente Kubernetes | Endereço |
-| --- | --- |
-| Gateway | http://localhost:18000 |
-| Grafana | http://localhost:13000 |
-| Prometheus | http://localhost:19090 |
-| Loki | http://localhost:13100 |
-| RabbitMQ AMQP | localhost:5673 |
-
-Os encaminhamentos ficam ativos enquanto o script estiver rodando. Ctrl+C os encerra sem apagar o cluster ou os dados.
-
-A Function roda localmente conectada ao broker do Kubernetes. Encerrar a execução anterior da Function com Ctrl+C antes de iniciar este modo. Manter o Azurite disponível:
-
-    docker compose up -d azurite
-
-Na pasta FCG-NotificationsFunction:
-
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -RabbitMQConnection amqp://guest:guest@localhost:5673/ -LokiUrl http://localhost:13100
-
-Docker Compose e Kubernetes possuem bancos e filas independentes. Uma conta ou compra criada em um ambiente não aparece automaticamente no outro.
-
-## Teste integrado
-
-Com a Function em execução, na pasta FCG-Orchestration:
-
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fase3.ps1
-
-Para testar o Kubernetes:
-
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\Test-Fase3.ps1 -BaseUrl http://localhost:18000 -GrafanaUrl http://localhost:13000 -PrometheusUrl http://localhost:19090 -LokiUrl http://localhost:13100 -CacheMode Kubernetes
-
-O teste cria uma conta fictícia única, faz login, consulta jogos, grava e consulta uma avaliação no MongoDB, inicia uma compra, aguarda a biblioteca e verifica os dois tipos de notificação no Loki. Também verifica bloqueio sem JWT, saúde das coletas do Prometheus e disponibilidade do Grafana. Os dados de demonstração ficam persistidos; o teste não limpa os bancos.
-
-Para conferir o Redis no Compose:
-
-    docker compose exec -T redis redis-cli --scan --pattern "fcg-catalog:*"
-    docker compose exec -T redis redis-cli TTL fcg-catalog:games:list
-
-No Kubernetes:
-
-    kubectl --context kind-fcg-fase3 -n fcg exec deployment/redis -- redis-cli --scan --pattern "fcg-catalog:*"
-
-O cache expira após cinco minutos. Criação, edição e exclusão invalidam as entradas relacionadas; requisições repetidas consultam o Redis enquanto a entrada é válida.
-
-## Observabilidade e demonstração
-
-No Grafana, abrir o dashboard FIAP Cloud Games - Observabilidade, na pasta FIAP Cloud Games. Selecionar os últimos 15 minutos e gerar requisições pelo Gateway. Os painéis mostram total de requisições, contagem por código HTTP, requisições por segundo, latência p95, erros 5xx por segundo, chamadas do Kong e logs da Function. Sem tráfego suficiente, painéis baseados em rate podem levar alguns segundos para mostrar valores.
-
-Em Explore, selecionar Loki e consultar:
-
-    {service="notifications-function"}
-
-O registro contém tipo, destinatário, assunto e corpo da notificação simulada. As duas notificações são produzidas por triggers de fila; a API não chama a Function diretamente.
-
-No Prometheus, a página Targets deve mostrar users-api, catalog-api e kong como UP. Na implantação Kubernetes, o Grafana recebe automaticamente a fonte de dados e o dashboard por ConfigMaps.
-
-## Escopo de implantação
-
-O ambiente de demonstração é local: microsserviços e observabilidade no Kubernetes, Function no Azure Functions Core Tools e Storage emulado pelo Azurite. Não há publicação automática na Azure. O repositório da Function contém Bicep para o ambiente de nuvem, cuja implantação exige assinatura, conectividade com RabbitMQ/Loki e recursos cobrados.
-
-## Entrega acadêmica
-
-O registro dos testes da versão de entrega está em [VALIDACAO.md](VALIDACAO.md).
-
-A entrega inclui vídeo de até 20 minutos, links dos cinco repositórios e este README como guia central. O vídeo demonstra requisições e segurança pelo Gateway, Function acionada e logs centralizados, dashboard em tempo real, MongoDB e cache.
-
-O relatório PDF ou TXT enviado à faculdade deve conter nome do grupo, participantes e usernames do Discord, link da documentação, links dos repositórios e link do vídeo. Gravação, publicação do vídeo e envio do relatório são etapas de entrega independentes da execução do código.
-
-## Referências
-
-- [API HTTP do Loki](https://grafana.com/docs/loki/latest/reference/loki-http-api/)
-- [Kubernetes local com kind](https://kind.sigs.k8s.io/docs/user/quick-start/)
+Nomes do grupo, usernames do Discord, URL final do ambiente e link do video precisam ser preenchidos pelo grupo antes da entrega.

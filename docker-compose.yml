@@ -7,8 +7,8 @@ services:
       - "5672:5672"
       - "15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
@@ -28,7 +28,7 @@ services:
     environment:
       KONG_DATABASE: "off"
       KONG_NGINX_WORKER_PROCESSES: "1"
-      JWT_SECRET: ${JWT_SECRET:-development-only-secret-key-change-me-123456789}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
@@ -48,15 +48,16 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__UsersDatabase: Data Source=/data/users.db
+      Database__Provider: Sqlite
+      ConnectionStrings__UsersDatabase: ${USERS_DATABASE:?USERS_DATABASE is required}
       Jwt__Issuer: FiapCloudGames.UsersApi
       Jwt__Audience: FiapCloudGames
-      Jwt__SecretKey: ${JWT_SECRET:-development-only-secret-key-change-me-123456789}
+      Jwt__SecretKey: ${JWT_SECRET:?JWT_SECRET is required}
       RabbitMq__Host: rabbitmq
-      RabbitMq__Username: ${RABBITMQ_USER:-guest}
-      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@fiap.com.br}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123!}
+      RabbitMq__Username: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:?ADMIN_EMAIL is required}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -69,16 +70,21 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      ConnectionStrings__CatalogDatabase: ${CATALOG_DATABASE:-Data Source=/data/catalog.db}
-      ConnectionStrings__MongoDb: ${MONGODB_CONNECTION:-mongodb://mongodb:27017}
-      ConnectionStrings__Redis: ${REDIS_CONNECTION:-redis:6379}
-      MongoDb__Database: ${MONGODB_DATABASE:-fcg_catalog}
+      Database__Provider: Sqlite
+      ConnectionStrings__CatalogDatabase: ${CATALOG_DATABASE:?CATALOG_DATABASE is required}
+      ConnectionStrings__MongoDb: ${MONGODB_CONNECTION:?MONGODB_CONNECTION is required}
+      ConnectionStrings__Redis: ${REDIS_CONNECTION:?REDIS_CONNECTION is required}
+      MongoDb__Database: ${MONGODB_DATABASE:?MONGODB_DATABASE is required}
+      Elasticsearch__Uri: ${ELASTICSEARCH_URI:?ELASTICSEARCH_URI is required}
+      Elasticsearch__Username: ${ELASTICSEARCH_USERNAME:?ELASTICSEARCH_USERNAME is required}
+      Elasticsearch__Password: ${ELASTICSEARCH_PASSWORD:?ELASTICSEARCH_PASSWORD is required}
+      Elasticsearch__IndexName: ${ELASTICSEARCH_INDEX:?ELASTICSEARCH_INDEX is required}
       Jwt__Issuer: FiapCloudGames.UsersApi
       Jwt__Audience: FiapCloudGames
-      Jwt__SecretKey: ${JWT_SECRET:-development-only-secret-key-change-me-123456789}
+      Jwt__SecretKey: ${JWT_SECRET:?JWT_SECRET is required}
       RabbitMq__Host: rabbitmq
-      RabbitMq__Username: ${RABBITMQ_USER:-guest}
-      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      RabbitMq__Username: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       UsersApi__BaseUrl: http://users-api:8080
     depends_on:
       rabbitmq:
@@ -89,6 +95,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
+      opensearch:
+        condition: service_healthy
     volumes:
       - catalog-data:/data
 
@@ -99,8 +107,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
       RabbitMq__Host: rabbitmq
-      RabbitMq__Username: ${RABBITMQ_USER:-guest}
-      RabbitMq__Password: ${RABBITMQ_PASSWORD:-guest}
+      RabbitMq__Username: ${RABBITMQ_USER:?RABBITMQ_USER is required}
+      RabbitMq__Password: ${RABBITMQ_PASSWORD:?RABBITMQ_PASSWORD is required}
       PaymentSimulation__ForcedStatus: Approved
     depends_on:
       rabbitmq:
@@ -117,6 +125,22 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  opensearch:
+    image: opensearchproject/opensearch:2.19.3
+    environment:
+      discovery.type: single-node
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
 
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:3.33.0
@@ -145,8 +169,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:?GRAFANA_USER is required}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?GRAFANA_PASSWORD is required}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -172,3 +196,4 @@ volumes:
   mongodb-data:
   grafana-data:
   azurite-data:
+  opensearch-data:

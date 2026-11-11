@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: kong}
+  template:
+    metadata:
+      labels: {app: kong}
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.7
+          command: [/bin/sh, /kong/template/start.sh]
+          env:
+            - {name: KONG_DATABASE, value: "off"}
+            - {name: KONG_NGINX_WORKER_PROCESSES, value: "1"}
+            - {name: KONG_ADMIN_LISTEN, value: "0.0.0.0:8001"}
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef: {name: fcg-runtime, key: Jwt__SecretKey}
+          ports:
+            - {containerPort: 8000, name: proxy}
+            - {containerPort: 8001, name: admin}
+          readinessProbe:
+            exec:
+              command: [kong, health]
+            initialDelaySeconds: 10
+          volumeMounts:
+            - {name: template, mountPath: /kong/template}
+      volumes:
+        - name: template
+          configMap: {name: kong-template}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+spec:
+  type: ClusterIP
+  selector: {app: kong}
+  ports:
+    - {name: proxy, port: 8000, targetPort: 8000}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin-internal
+spec:
+  type: ClusterIP
+  selector: {app: kong}
+  ports:
+    - {name: admin, port: 8001, targetPort: 8001}

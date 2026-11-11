@@ -1,0 +1,15 @@
+azure_subscription_id = "00000000-0000-0000-0000-000000000000"
+location              = "East US 2"
+cluster_name          = "fcg-prod-aks"
+admin_email           = "replace-with-the-group-admin-email"
+
+# Azure permits only one Cosmos DB free-tier account per subscription.
+cosmos_enable_free_tier = true
+
+# Keep the academic environment small. Review costs before applying.
+node_count                       = 2
+redis_high_availability_enabled = false
+
+# Never put the Elastic Cloud API key in this file.
+# PowerShell:
+# $env:TF_VAR_elastic_cloud_api_key = '<ELASTIC_CLOUD_API_KEY>'

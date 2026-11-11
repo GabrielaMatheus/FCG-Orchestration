@@ -1,11 +1,4 @@
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: rabbitmq-config
-data:
-  RABBITMQ_DEFAULT_USER: guest
----
-apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: rabbitmq-data
@@ -42,10 +35,12 @@ spec:
               name: amqp
             - containerPort: 15672
               name: management
-          envFrom:
-            - configMapRef:
-                name: rabbitmq-config
           env:
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: fcg-runtime
+                  key: RabbitMq__Username
             - name: RABBITMQ_DEFAULT_PASS
               valueFrom:
                 secretKeyRef:

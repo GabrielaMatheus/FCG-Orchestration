@@ -2,6 +2,11 @@ param([string]$Context='kind-fcg-fase3', [switch]$SkipImageLoad)
 $ErrorActionPreference='Stop'
 $root=Split-Path $PSScriptRoot -Parent
 function Check([string]$Operation) {if($LASTEXITCODE -ne 0){throw "Falha: $Operation"}}
+function Require-EnvironmentVariable([string]$Name) {
+    $value=[Environment]::GetEnvironmentVariable($Name)
+    if([string]::IsNullOrWhiteSpace($value)){throw "Defina a variavel de ambiente $Name antes do deploy."}
+    return $value
+}
 Push-Location $root
 try {
     kubectl --context $Context cluster-info | Out-Null
@@ -14,17 +19,22 @@ try {
     }
     kubectl --context $Context apply -f k8s/namespace.yaml
     Check 'namespace'
-    # Credenciais exclusivas do ambiente local de demonstracao.
-    $jwt=if($env:JWT_SECRET){$env:JWT_SECRET}else{'development-only-secret-key-change-me-123456789'}
-    $adminPassword=if($env:ADMIN_PASSWORD){$env:ADMIN_PASSWORD}else{'Admin@123!'}
     $secret=@{
         apiVersion='v1';kind='Secret';metadata=@{name='fcg-runtime';namespace='fcg'};type='Opaque'
         stringData=@{
-            Jwt__SecretKey=$jwt;RabbitMq__Password='guest';ADMIN_EMAIL='admin@fiap.com.br';ADMIN_PASSWORD=$adminPassword
-            ConnectionStrings__UsersDatabase='Data Source=/data/users.db'
-            ConnectionStrings__CatalogDatabase='Data Source=/data/catalog.db'
-            ConnectionStrings__MongoDb='mongodb://mongodb:27017'
-            GrafanaPassword='admin'
+            Jwt__SecretKey=(Require-EnvironmentVariable 'JWT_SECRET')
+            RabbitMq__Username=(Require-EnvironmentVariable 'RABBITMQ_USER')
+            RabbitMq__Password=(Require-EnvironmentVariable 'RABBITMQ_PASSWORD')
+            ADMIN_EMAIL=(Require-EnvironmentVariable 'ADMIN_EMAIL')
+            ADMIN_PASSWORD=(Require-EnvironmentVariable 'ADMIN_PASSWORD')
+            ConnectionStrings__UsersDatabase=(Require-EnvironmentVariable 'USERS_DATABASE')
+            ConnectionStrings__CatalogDatabase=(Require-EnvironmentVariable 'CATALOG_DATABASE')
+            ConnectionStrings__MongoDb=(Require-EnvironmentVariable 'MONGODB_CONNECTION')
+            ConnectionStrings__Redis=(Require-EnvironmentVariable 'REDIS_CONNECTION')
+            Elasticsearch__Uri=(Require-EnvironmentVariable 'ELASTICSEARCH_URI')
+            Elasticsearch__Username=(Require-EnvironmentVariable 'ELASTICSEARCH_USERNAME')
+            Elasticsearch__Password=(Require-EnvironmentVariable 'ELASTICSEARCH_PASSWORD')
+            GrafanaPassword=(Require-EnvironmentVariable 'GRAFANA_PASSWORD')
         }
     }
     $secret|ConvertTo-Json -Depth 8|kubectl --context $Context apply -f -
@@ -35,7 +45,7 @@ try {
         kubectl --context $Context -n fcg rollout restart deployment/users-api deployment/catalog-api deployment/payments-api
         Check 'atualizacao das imagens dos microsservicos'
     }
-    foreach($deployment in @('rabbitmq','mongodb','redis','users-api','catalog-api','payments-api','kong','loki','prometheus','grafana')) {
+    foreach($deployment in @('rabbitmq','mongodb','redis','opensearch','users-api','catalog-api','payments-api','kong','loki','prometheus','grafana')) {
         kubectl --context $Context -n fcg rollout status "deployment/$deployment" --timeout=180s
         Check "Deployment $deployment"
     }

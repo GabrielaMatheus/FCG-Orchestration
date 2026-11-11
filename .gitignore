@@ -8,3 +8,14 @@ obj/
 *.db
 *.db-shm
 *.db-wal
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json

@@ -34,6 +34,10 @@ services:
           - ~/api/users/[^/]+/games/[^/]+/purchase$
           - ~/api/users/[^/]+/library$
         strip_path: false
+      - name: catalog-search-route
+        paths:
+          - /search
+        strip_path: false
 
   - name: users-documentation
     url: http://users-api:8080/swagger
@@ -81,6 +85,13 @@ plugins:
 
   - name: jwt
     route: catalog-user-routes
+    config:
+      key_claim_name: iss
+      claims_to_verify:
+        - exp
+
+  - name: jwt
+    route: catalog-search-route
     config:
       key_claim_name: iss
       claims_to_verify:

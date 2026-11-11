@@ -6,6 +6,7 @@ resources:
   - k8s/apps.yaml
   - k8s/rabbitmq.yaml
   - k8s/mongodb-redis.yaml
+  - k8s/opensearch.yaml
   - k8s/kong-gateway.yaml
   - k8s/observability.yaml
 configMapGenerator:
