@@ -2,6 +2,8 @@
 
 Solucao cloud-native em microsservicos .NET 8 no Microsoft Azure, com AKS, Azure Container Registry, PostgreSQL Flexible Server, Cosmos DB for MongoDB, Azure Managed Redis, Elastic Cloud, Azure Key Vault, RabbitMQ, Kong e CI/CD por GitHub Actions.
 
+Este e o mesmo FIAP Cloud Games iniciado na Fase 1 e evoluido nas Fases 2 e 3. A Fase 4 nao recria o sistema: preserva dominio, APIs, pagamentos, RabbitMQ, Kong e a NotificationsFunction e acrescenta infraestrutura gerenciada, busca avancada e entrega continua. A linha do tempo completa esta em [docs/HISTORICO-DO-PROJETO.md](docs/HISTORICO-DO-PROJETO.md).
+
 ## Requisitos atendidos
 
 | Requisito | Implementacao |
@@ -33,9 +35,12 @@ Internet
 
 GitHub main -> Actions -> testes -> Docker -> Trivy -> ACR -> rolling update AKS
 Azure Key Vault -> Kubernetes Secret + CSI rotation -> pods
+RabbitMQ -> Azure NotificationsFunction (componente serverless preservado da Fase 3)
 ```
 
 O PostgreSQL substitui o SQLite em producao para que as replicas compartilhem persistencia transacional. Cosmos DB armazena as avaliacoes flexiveis via protocolo MongoDB; Redis nao e fonte de verdade; Elasticsearch e um indice reconstruivel.
+
+A `FCG-NotificationsFunction` nao foi reescrita porque ja utiliza Azure Functions com .NET 8 e possui Bicep proprio. A implantacao principal desta fase concentra os workloads em AKS pedidos pelo novo documento; a Function continua como componente serverless independente do fluxo de eventos.
 
 ## Repositorios
 
@@ -179,5 +184,6 @@ Confirme no Portal do Azure que `rg-fcg-prod` desapareceu e no Elastic Cloud que
 - Modelo do relatorio: [docs/RELATORIO-ENTREGA-FASE4.md](docs/RELATORIO-ENTREGA-FASE4.md)
 - Evidencias de validacao: [VALIDACAO-FASE4.md](VALIDACAO-FASE4.md)
 - Guia Azure para iniciantes: [docs/GUIA-AZURE-PASSO-A-PASSO.md](docs/GUIA-AZURE-PASSO-A-PASSO.md)
+- Historico das Fases 1 a 4: [docs/HISTORICO-DO-PROJETO.md](docs/HISTORICO-DO-PROJETO.md)
 
 Nomes do grupo, usernames do Discord, URL final do ambiente e link do video precisam ser preenchidos pelo grupo antes da entrega.

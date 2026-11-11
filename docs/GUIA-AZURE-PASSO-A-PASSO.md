@@ -44,7 +44,9 @@ Importante: o orçamento manda avisos, mas nao desliga os recursos automaticamen
 
 Essa chave autoriza o Terraform a criar o Elasticsearch gerenciado dentro da infraestrutura Azure da Elastic.
 
-## Parte 4 - abrir o Docker Desktop
+## Parte 4 - abrir o Docker Desktop que ja esta instalado
+
+O Docker Desktop foi instalado e usado nas fases anteriores. Nao e necessario criar outra conta nem instalar uma segunda copia.
 
 1. Clique no menu Iniciar do Windows.
 2. Digite `Docker Desktop`.
@@ -53,12 +55,12 @@ Essa chave autoriza o Terraform a criar o Elasticsearch gerenciado dentro da inf
 5. Espere ate o Docker informar que esta funcionando. O icone da baleia deve ficar estavel, sem mensagem de inicializacao.
 6. Deixe o Docker Desktop aberto.
 
-Neste computador, o Docker Desktop 4.82 apresentou um erro interno ao criar sockets temporarios. Se a janela mostrar **An unexpected error occurred**, nao escolha **Reset to factory defaults**, porque isso pode apagar dados locais. Faca assim:
+Neste computador, a instalacao existente do Docker Desktop 4.82 apresentou um erro interno ao criar sockets temporarios. Se a janela mostrar **An unexpected error occurred**, nao escolha **Reset to factory defaults**, porque isso pode apagar dados locais. Faca assim:
 
 1. Clique em **Quit**.
 2. Abra <https://www.docker.com/products/docker-desktop/>.
-3. Baixe a versao atual do Docker Desktop para Windows.
-4. Abra o instalador baixado.
+3. Baixe a atualizacao atual do Docker Desktop para Windows.
+4. Abra o atualizador baixado. Ele atualiza a instalacao existente; nao cria um segundo Docker.
 5. Quando o Windows perguntar se permite alteracoes, clique em **Sim**.
 6. Conclua a atualizacao e, se o instalador pedir, reinicie o computador.
 7. Abra o Docker Desktop novamente e espere a baleia ficar pronta.

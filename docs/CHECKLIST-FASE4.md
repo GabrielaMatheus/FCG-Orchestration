@@ -2,6 +2,8 @@
 
 ## Infraestrutura gerenciada e portabilidade
 
+- [x] Evolucao feita sobre os cinco repositorios e o fluxo assincrono das Fases 2 e 3.
+- [x] PaymentsAPI, RabbitMQ, Kong e NotificationsFunction preservados.
 - [x] Terraform para Resource Group, VNet e Azure Kubernetes Service.
 - [x] Node pool gerenciado com autoscaling.
 - [x] Azure Container Registry privado.
@@ -57,6 +59,7 @@
 
 ## Entregaveis
 
+- [x] Historico das Fases 1 a 4 documentado para demonstrar a continuidade do projeto.
 - [x] Codigo e integracoes atualizados.
 - [x] Terraform e manifestos Kubernetes.
 - [x] Pipelines `.yml`.
