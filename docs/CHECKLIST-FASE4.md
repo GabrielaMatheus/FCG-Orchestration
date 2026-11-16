@@ -67,5 +67,5 @@
 - [x] Roteiro de video de ate 25 minutos.
 - [x] Modelo de relatorio.
 - [ ] Nomes e Discord do grupo preenchidos.
-- [ ] Links finais dos repositorios confirmados.
+- [x] Links finais dos repositorios confirmados.
 - [ ] Video publicado no YouTube ou Drive e link preenchido.

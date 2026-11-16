@@ -1,6 +1,6 @@
 # Validacao tecnica - Fase 4
 
-Ultima revisao local: 2026-11-11.
+Ultima revisao local: 2026-11-16.
 
 ## Testes automatizados
 
@@ -27,7 +27,12 @@ O CatalogAPI usa PostgreSQL, `MongoDB.Driver`, `IDistributedCache` com Redis e a
 - [x] 19 arquivos YAML dos workflows e manifests Kubernetes analisados sem erro.
 - [x] `docker compose config`: valido.
 - [x] `Provision-Azure.ps1`, `Deploy-Azure.ps1` e `Destroy-Azure.ps1` analisados sem erro de sintaxe.
-- [ ] Build real das imagens Docker: Docker Desktop foi iniciado, mas o engine nao ficou disponivel sem interacao do usuario.
+- [x] Build real das imagens Docker de UsersAPI, CatalogAPI e PaymentsAPI concluido.
+- [x] Stack local completa iniciada com Kong, RabbitMQ, MongoDB, Redis, OpenSearch, Prometheus, Grafana e Azurite.
+- [x] Teste integrado Fase 4 concluido: segunda consulta com `X-Cache: HIT` (55 ms), busca fuzzy `Avetura` retornando `Aventura Espacial` por relevancia.
+- [x] Rota protegida recusou chamada sem JWT com HTTP 401.
+- [x] Avaliacao criada e consultada no MongoDB pelo endpoint de reviews.
+- [x] OpenSearch saudavel, Prometheus pronto e banco do Grafana com status `ok`.
 
 ## Validacoes que dependem das contas do grupo
 

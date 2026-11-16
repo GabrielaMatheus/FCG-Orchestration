@@ -128,6 +128,7 @@ Um push em `main` executa restore, build, testes, build da imagem com tag do SHA
 ## Desenvolvimento local
 
 Copie `.env.example` para `.env` e preencha os valores locais; nunca versione `.env`.
+Defina uma senha forte em `OPENSEARCH_INITIAL_ADMIN_PASSWORD`; a imagem atual do OpenSearch exige esse valor mesmo com o plugin de seguranca desabilitado apenas no ambiente local.
 
 ```powershell
 docker compose config
