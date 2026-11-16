@@ -185,6 +185,7 @@ Confirme no Portal do Azure que `rg-fcg-prod` desapareceu e no Elastic Cloud que
 - Modelo do relatorio: [docs/RELATORIO-ENTREGA-FASE4.md](docs/RELATORIO-ENTREGA-FASE4.md)
 - Evidencias de validacao: [VALIDACAO-FASE4.md](VALIDACAO-FASE4.md)
 - Guia Azure para iniciantes: [docs/GUIA-AZURE-PASSO-A-PASSO.md](docs/GUIA-AZURE-PASSO-A-PASSO.md)
+- Plano curto para o dia da entrega: [docs/PLANO-FINALIZACAO-FASE4.md](docs/PLANO-FINALIZACAO-FASE4.md)
 - Historico das Fases 1 a 4: [docs/HISTORICO-DO-PROJETO.md](docs/HISTORICO-DO-PROJETO.md)
 
 Nomes do grupo, usernames do Discord, URL final do ambiente e link do video precisam ser preenchidos pelo grupo antes da entrega.
