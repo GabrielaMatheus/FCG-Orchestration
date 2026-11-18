@@ -182,6 +182,8 @@ Confirme no Portal do Azure que `rg-fcg-prod` desapareceu e no Elastic Cloud que
 
 - Checklist tecnico: [docs/CHECKLIST-FASE4.md](docs/CHECKLIST-FASE4.md)
 - Roteiro do pitch: [docs/ROTEIRO-PITCH-FASE4.md](docs/ROTEIRO-PITCH-FASE4.md)
+- Roteiro de contingencia para demonstracao local: [docs/ROTEIRO-PITCH-FASE4-LOCAL.md](docs/ROTEIRO-PITCH-FASE4-LOCAL.md)
+- Evidencias locais verificadas: [docs/EVIDENCIAS-LOCAIS-FASE4.md](docs/EVIDENCIAS-LOCAIS-FASE4.md)
 - Modelo do relatorio: [docs/RELATORIO-ENTREGA-FASE4.md](docs/RELATORIO-ENTREGA-FASE4.md)
 - Evidencias de validacao: [VALIDACAO-FASE4.md](VALIDACAO-FASE4.md)
 - Guia Azure para iniciantes: [docs/GUIA-AZURE-PASSO-A-PASSO.md](docs/GUIA-AZURE-PASSO-A-PASSO.md)
