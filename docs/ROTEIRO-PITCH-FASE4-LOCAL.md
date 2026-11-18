@@ -41,7 +41,7 @@ Este roteiro e a alternativa de contingencia quando a ativacao da assinatura Azu
 - Mostrar os cinco repositorios no GitHub.
 - Encerrar dizendo claramente que o deploy Azure esta pronto como IaC, mas nao foi executado por bloqueio externo de faturamento.
 
-## Nao esquecer
+## Cuidados durante a demonstracao
 
 - Grave a tela e o microfone.
 - Nao mostre senhas, cartao, tokens ou chaves.
