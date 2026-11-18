@@ -1,6 +1,6 @@
 # Evidencias locais - Fase 4
 
-Data da validacao: 16/11/2026.
+Data da ultima validacao: 17/11/2026.
 
 ## Resultados automatizados
 
@@ -10,7 +10,7 @@ Data da validacao: 16/11/2026.
 | CatalogAPI | 7/7 testes aprovados em Release |
 | Imagens Docker | UsersAPI, CatalogAPI e PaymentsAPI construidas com sucesso |
 | Autenticacao | Rota protegida recusou requisicao sem JWT com HTTP 401 |
-| Cache Redis | Segunda consulta retornou `X-Cache: HIT` em 55 ms |
+| Cache Redis | Segunda consulta retornou `X-Cache: HIT` em 46 ms |
 | Busca avancada | `Avetura` retornou `Aventura Espacial` com score 2,5221322 |
 | MongoDB | Avaliacao criada e consultada pelo endpoint de reviews |
 | OpenSearch | Container saudavel e cluster funcional |
